@@ -15,21 +15,49 @@ use Symfony\Component\Routing\Annotation\Route;
 use Symfony\Component\Routing\Generator\UrlGeneratorInterface;
 use Symfony\Component\Serializer\Normalizer\AbstractNormalizer;
 // use Symfony\Component\Serializer\SerializerInterface; // Serealiser natif de symfony
-//use JMS\Serializer\Serializer; // serialiser de JMSSerializer
+// use JMS\Serializer\Serializer; // serialiser de JMSSerializer
 use JMS\Serializer\SerializationContext;
 use JMS\Serializer\SerializerInterface;
 use Symfony\Component\Validator\Validator\ValidatorInterface;
 use Symfony\Contracts\Cache\ItemInterface;
 use Symfony\Contracts\Cache\TagAwareCacheInterface;
+use Nelmio\ApiDocBundle\Annotation\Model;
+use Nelmio\ApiDocBundle\Annotation\Security;
+use OpenApi\Annotations as OA;
 
 class BookController extends AbstractController
 {
     #[Route('/api/books', name: 'books', methods: ['GET'])]
     /**
-     * Summary of getBookList
-     * @param \App\Repository\BookRepository $bookRepository
-     * @param \Symfony\Component\Serializer\SerializerInterface $serializer
-     * @return \Symfony\Component\HttpFoundation\JsonResponse
+     * Cette méthode permet de récupérer l'ensemble des livres.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Retourne la liste des livres",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Parameter(
+     *     name="page",
+     *     in="query",
+     *     description="La page que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     *
+     * @OA\Parameter(
+     *     name="limit",
+     *     in="query",
+     *     description="Le nombre d'éléments que l'on veut récupérer",
+     *     @OA\Schema(type="int")
+     * )
+     * @OA\Tag(name="Books")
+     *
+     * @param BookRepository $bookRepository
+     * @param SerializerInterface $serializer
+     * @param Request $request
+     * @return JsonResponse
      */
     public function getBookList(BookRepository $bookRepository, SerializerInterface $serializer, 
     Request $request, TagAwareCacheInterface $cachePool): JsonResponse
@@ -41,9 +69,9 @@ class BookController extends AbstractController
         // Système de cache
         $idCache = "getBookList-" . $page . "-" . $limit;
         $jsonBookList = $cachePool->get($idCache, function (ItemInterface $item) use ($bookRepository, $page, $limit, $serializer) {
-            echo("L'élément n'a pas encore été mis en cache");
+            
             $item->tag("booksCache");
-            $item->expiresAfter(60); // Permet de définir la durée de vie en secondes des données mise en cache avec un tag précis
+            $item->expiresAfter(6000); // Permet de définir la durée de vie en secondes des données mise en cache avec un tag précis
             $bookList = $bookRepository->findAllWithPagination($page, $limit);
 
             $context = SerializationContext::create()->setGroups(['getBooks']);
@@ -58,11 +86,25 @@ class BookController extends AbstractController
         );
     }
 
-    #[Route('/api/books/{id}', name: 'detailbook', methods: ['GET'])]
+
+
+
+
+    #[Route('/api/books/{id}', name: 'detailBook', methods: ['GET'])]
     /**
-     * Summary of getSingleBook
+     * Cette méthode permet de récupérer un livre en prenant en parametre son id.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Retourne un livre unique",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Tag(name="Books")
+     * 
      * @param \App\Entity\Book $book
-     * @param \Symfony\Component\Serializer\SerializerInterface $serializer
      * @return \Symfony\Component\HttpFoundation\JsonResponse
      */
     public function getSingleBook(Book $book, SerializerInterface $serializer) : JsonResponse
@@ -70,19 +112,33 @@ class BookController extends AbstractController
         $context = SerializationContext::create()->setGroups(['getBooks']);
         $jsonBook = $serializer->serialize($book, 'json', $context);
         return new JsonResponse(
-            $jsonBook,
-            Response::HTTP_OK,
-            ['accept' => 'json'],
-            true,
+            $jsonBook, 
+            Response::HTTP_OK, 
+            [], 
+            true
         );
     }
+
+
+
+
 
     #[Route('/api/books/{id}', name: 'deleteBook', methods: ['DELETE'])]
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour supprimer un livre')]
     /**
-     * Summary of deleteBook
+     * Cette méthode permet de supprimer un livre en prenant en parametre son id.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Supprime un livre unique",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Tag(name="Books")
+     * 
      * @param \App\Entity\Book $book
-     * @param \Doctrine\ORM\EntityManagerInterface $em
      * @return \Symfony\Component\HttpFoundation\JsonResponse
      */
     public function deleteBook(Book $book, EntityManagerInterface $em, TagAwareCacheInterface $cachePool): JsonResponse 
@@ -97,12 +153,26 @@ class BookController extends AbstractController
         );
     }
 
+
+
+
+
     #[Route('/api/books', name:"createBook", methods: ['POST'])]
     #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour créer un livre')]
     /**
-     * Summary of createBook
+     * Cette méthode permet de créer un nouveau livre.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Crée un nouveau livre",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Tag(name="Books")
+     * 
      * @param \Symfony\Component\HttpFoundation\Request $request
-     * @param \Symfony\Component\Serializer\SerializerInterface $serializer
      * @param \Doctrine\ORM\EntityManagerInterface $em
      * @param \Symfony\Component\Routing\Generator\UrlGeneratorInterface $urlGenerator
      * @return \Symfony\Component\HttpFoundation\JsonResponse
@@ -148,33 +218,57 @@ class BookController extends AbstractController
         );
    }
 
+
+
+
+
    #[Route('/api/books/{id}', name:"updateBook", methods:['PUT'])]
    #[IsGranted('ROLE_ADMIN', message: 'Vous n\'avez pas les droits suffisants pour modifier un livre')]
     /**
-     * Summary of updateBook
+     * Cette méthode permet de mettre à jour un livre en prenant en parametre son id.
+     *
+     * @OA\Response(
+     *     response=200,
+     *     description="Mets à jour un livre",
+     *     @OA\JsonContent(
+     *        type="array",
+     *        @OA\Items(ref=@Model(type=Book::class, groups={"getBooks"}))
+     *     )
+     * )
+     * @OA\Tag(name="Books")
+     * 
      * @param \Symfony\Component\HttpFoundation\Request $request
-     * @param \Symfony\Component\Serializer\SerializerInterface $serializer
      * @param \App\Entity\Book $currentBook
      * @param \Doctrine\ORM\EntityManagerInterface $em
      * @param \App\Repository\AuthorRepository $authorRepository
      * @return \Symfony\Component\HttpFoundation\JsonResponse
      */
-    public function updateBook(Request $request, SerializerInterface $serializer, Book $currentBook, 
-    EntityManagerInterface $em, AuthorRepository $authorRepository): JsonResponse 
+    public function updateBook(Request $request, SerializerInterface $serializer, 
+    Book $currentBook, EntityManagerInterface $em, AuthorRepository $authorRepository, 
+    ValidatorInterface $validator, TagAwareCacheInterface $cache): JsonResponse 
     {
-        $updatedBook = $serializer->deserialize($request->getContent(), Book::class, 'json');
-        $currentBook->setTitle($updatedBook->getTitle());
-        $currentBook->setCoverText($updatedBook->getCoverText());
+        $newBook = $serializer->deserialize($request->getContent(), Book::class, 'json');
+        $currentBook->setTitle($newBook->getTitle());
+        $currentBook->setCoverText($newBook->getCoverText());
+
+        // On vérifie les erreurs
+        $errors = $validator->validate($currentBook);
+        if ($errors->count() > 0) {
+            return new JsonResponse($serializer->serialize($errors, 'json'), JsonResponse::HTTP_BAD_REQUEST, [], true);
+        }
 
         $content = $request->toArray();
         $idAuthor = $content['idAuthor'] ?? -1;
+    
         $currentBook->setAuthor($authorRepository->find($idAuthor));
-        
+
         $em->persist($currentBook);
         $em->flush();
-        return new JsonResponse(
-            null, 
-            JsonResponse::HTTP_NO_CONTENT
-        );
+
+        // On vide le cache.
+        $cache->invalidateTags(["booksCache"]);
+
+        return new JsonResponse(null, JsonResponse::HTTP_NO_CONTENT);
+
    }
 }
